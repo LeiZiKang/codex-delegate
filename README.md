@@ -95,7 +95,8 @@ Claude will then:
 
 ```
 run-codex.sh --repo DIR --notes DIR --brief FILE [--name TASK]
-             [--network] [--codex-home DIR] [--model M] [-- EXTRA_CODEX_ARGS...]
+             [--network] [--codex-home DIR] [--model M] [--stall-minutes N]
+             [-- EXTRA_CODEX_ARGS...]
 ```
 Writes `run-<task>.log`, `last-<task>.txt` and `<task>.done` (exit code) into the notes dir,
 then prints Codex's last message, its token usage and `git status --short`.
@@ -118,7 +119,10 @@ examples/                a real brief + Codex report from the demo run
 
 - Don't background with `&`: you lose the completion notification. Use Claude Code's
   `run_in_background`.
-- `codex exec` reads stdin when it isn't a TTY; the script feeds the brief through stdin.
+- `codex exec` waits on an open stdin pipe forever ("Reading additional input from stdin...";
+  two parallel runs once idled 5 hours). Always `< /dev/null` or feed the brief via stdin; the
+  script also has a watchdog that aborts stalled runs (exit 124).
+- Parallel runs: one background task each, disjoint files, separate build dirs and caches.
 - In Codex's `workspace-write` sandbox, SwiftPM needs `--disable-sandbox` and module caches
   inside the repo; `xcodebuild` package resolution, LaunchServices (`open` → `-10827`),
   private frameworks, Apple Events and often the network fail. Claude re-checks those outside.

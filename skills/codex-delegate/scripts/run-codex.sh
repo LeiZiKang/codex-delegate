@@ -7,7 +7,8 @@ set -uo pipefail
 usage() {
   cat <<'EOF'
 Usage: run-codex.sh --repo DIR --notes DIR --brief FILE [--name TASK]
-                    [--network] [--codex-home DIR] [--model M] [-- EXTRA_CODEX_ARGS...]
+                    [--network] [--codex-home DIR] [--model M] [--stall-minutes N]
+                    [-- EXTRA_CODEX_ARGS...]
 
   --repo        Repository Codex works in (passed as -C, writable).
   --notes       Notes dir outside the repo (passed as --add-dir, writable).
@@ -17,11 +18,14 @@ Usage: run-codex.sh --repo DIR --notes DIR --brief FILE [--name TASK]
   --network     Allow network inside the workspace-write sandbox.
   --codex-home  Set CODEX_HOME (for users whose `codex` is a shell function).
   --model       Override the Codex model.
+  --stall-minutes  Abort (exit 124) if the log stops growing for N minutes
+                (default 30; 0 disables). A run stuck on "Reading additional
+                input from stdin..." is aborted after about a minute.
 Env: CODEX_BIN pins the codex executable; CODEX_HOME is passed through.
 EOF
 }
 
-repo="" notes="" brief="" name="" network=0 model="" extra=()
+repo="" notes="" brief="" name="" network=0 model="" stall_min=30 extra=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
@@ -31,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --network) network=1; shift ;;
     --codex-home) export CODEX_HOME="$2"; shift 2 ;;
     --model) model="$2"; shift 2 ;;
+    --stall-minutes) stall_min="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     --) shift; extra=("$@"); break ;;
     *) echo "Unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -72,13 +77,41 @@ echo "log: $log"
 start=$(date +%s)
 
 # Brief goes in on stdin: no argv quoting problems, and Codex never waits on an open stdin.
-"$codex_bin" "${args[@]}" < "$brief" > "$log" 2>&1
+"$codex_bin" "${args[@]}" < "$brief" > "$log" 2>&1 &
+pid=$!
+
+# Watchdog: Codex runs in the background of THIS script only; the script itself stays in the
+# foreground so Claude Code still gets its completion notification.
+stalled=""
+last_size=-1 last_change=$(date +%s) checked_stdin=0
+while kill -0 "$pid" 2>/dev/null; do
+  sleep 5
+  now=$(date +%s)
+  size=$(wc -c < "$log" 2>/dev/null || echo 0)
+  if [[ "$size" != "$last_size" ]]; then last_size=$size; last_change=$now; fi
+  if (( !checked_stdin && now - start >= 60 )); then
+    checked_stdin=1
+    if [[ "$(grep -v '^[[:space:]]*$' "$log" | tail -1)" == *"Reading additional input from stdin"* ]]; then
+      stalled="stuck waiting on stdin (prompt passed as argument without < /dev/null?)"
+    fi
+  fi
+  if [[ -z "$stalled" ]] && (( stall_min > 0 && now - last_change >= stall_min * 60 )); then
+    stalled="log has not grown for ${stall_min} min"
+  fi
+  if [[ -n "$stalled" ]]; then
+    kill "$pid" 2>/dev/null; sleep 3; kill -9 "$pid" 2>/dev/null
+    break
+  fi
+done
+wait "$pid" 2>/dev/null
 code=$?
+[[ -n "$stalled" ]] && code=124
 secs=$(( $(date +%s) - start ))
 echo "$code" > "$done_file"
 
 echo
 echo "=== codex exit code: $code (${secs}s) ==="
+[[ -n "$stalled" ]] && echo "=== ABORTED by watchdog: $stalled ==="
 if [[ -s "$last" ]]; then
   echo "=== last message ($last) ==="
   cat "$last"; echo

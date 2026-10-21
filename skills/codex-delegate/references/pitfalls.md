@@ -3,9 +3,18 @@
 ## Running Codex from Claude Code
 - **Use `run_in_background: true`, not `&`.** With `&`/`nohup` the Bash tool returns at once,
   Claude gets no completion notification, and has to poll for a marker file.
-- **Close stdin.** `codex exec` reads extra input from stdin when stdin is not a TTY
-  (log line: `Reading additional input from stdin...`). Feed the brief via stdin
-  (`codex exec ... - < brief.md`) or redirect `< /dev/null`. `run-codex.sh` does this.
+- **Close stdin: always `< /dev/null` (or feed the brief via stdin).** When stdin is a pipe
+  that stays open, `codex exec` treats it as extra input and waits forever after printing
+  `Reading additional input from stdin...`, even when the prompt was passed as an argument.
+  Real case: `( codex exec ... ) & codex exec ...; wait` started two runs that sat idle for
+  5 hours without writing a line. `run-codex.sh` feeds the brief via stdin and its watchdog
+  aborts this hang after ~60 s (exit 124).
+- **Stall detection.** ~1 minute after launch, the run log should be growing. The
+  watchdog also aborts if the log stops growing for `--stall-minutes` (default 30).
+- **Parallel runs** need separate task names, separate build dirs and caches
+  (SwiftPM `--scratch-path .build/<task>` plus per-task `CLANG_MODULE_CACHE_PATH` /
+  `SWIFTPM_MODULECACHE_OVERRIDE`), and disjoint file ownership written into each brief.
+  Launch each as its own background Bash call, not with `&` + `wait`.
 - **`codex` may be a shell function.** Users with several accounts often define
   `codex() { CODEX_HOME=~/.codex-x command codex "$@"; }` in `~/.zshrc`. Claude Code's Bash
   is non-interactive and does not load it, so the wrong account may be used. Pass

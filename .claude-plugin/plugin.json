@@ -1,6 +1,6 @@
 {
   "name": "codex-delegate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Save Claude usage: Claude plans, writes briefs and reviews; the local Codex CLI writes code, builds and tests.",
   "author": { "name": "Levi" },
   "homepage": "https://github.com/LeiZiKang/codex-delegate",

@@ -91,7 +91,8 @@ Claude 会：
 
 ```
 run-codex.sh --repo DIR --notes DIR --brief FILE [--name TASK]
-             [--network] [--codex-home DIR] [--model M] [-- 其他 codex 参数...]
+             [--network] [--codex-home DIR] [--model M] [--stall-minutes N]
+             [-- 其他 codex 参数...]
 ```
 在笔记目录写出 `run-<task>.log`、`last-<task>.txt` 和 `<task>.done`（退出码），
 然后打印 Codex 的最后一条消息、token 用量和 `git status --short`。
@@ -99,7 +100,9 @@ run-codex.sh --repo DIR --notes DIR --brief FILE [--name TASK]
 ## 实战经验（已写进 skill）
 
 - 不要用 `&` 自行后台化，否则收不到完成通知；用 Claude Code 的 `run_in_background`。
-- `codex exec` 在 stdin 不是终端时会读取 stdin；脚本通过 stdin 传入任务书。
+- stdin 管道没关时，`codex exec` 会一直等它（卡在 "Reading additional input from stdin..."，曾有两个并行任务空等 5 小时）。
+  一律加 `< /dev/null` 或用 stdin 传任务书；脚本还带了看门狗，卡住会中止并返回 124。
+- 并行跑多个任务：每个任务单独起一个后台任务，改的文件互不重叠，构建目录和缓存分开。
 - Codex 的 `workspace-write` 沙盒里，SwiftPM 需要 `--disable-sandbox`，并把模块缓存放到项目内；
   `xcodebuild` 包解析、LaunchServices（`open` 报 `-10827`）、私有框架、Apple Events、
   经常还有网络都会失败，这些由 Claude 在沙盒外复核。

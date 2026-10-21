@@ -66,10 +66,31 @@ it exits; meanwhile you can keep talking with the user or do other work.
   It feeds the brief through stdin (no quoting issues, and no hang on
   "Reading additional input from stdin"), writes `<notes>/<task>.done` with the exit code,
   and prints Codex's last message plus `git status --short` of the repo.
+- **stdin must never be left open.** If you ever call `codex exec` directly with the prompt
+  as an argument, always append `< /dev/null`. Without it, when stdin is a pipe that never
+  closes, Codex waits on it forever after printing "Reading additional input from stdin..."
+  (real case: two parallel runs sat idle for 5 hours without writing a line).
+- **Stall check:** about a minute after launch, check that `run-<task>.log` is growing and
+  does not end with "Reading additional input from stdin...". The script also has a watchdog:
+  it aborts with exit code 124 if the log stops growing for `--stall-minutes` (default 30,
+  `0` disables) and fails fast on the stdin hang.
 - `--network` only when the task truly needs it (package installs, online tests).
 - If the user runs `codex` through a shell function that sets `CODEX_HOME` (multiple
   accounts), pass `--codex-home` or export `CODEX_HOME`; check-setup prints the value.
 - Do not read `run-<task>.log` unless something failed; it is large. Use `tail -40` if needed.
+
+### Running several Codex tasks in parallel
+
+- One `run-codex.sh` call per task, each its own Bash call with `run_in_background: true`.
+  Never chain them in one command with `&` and `wait`.
+- Give each task a distinct `--name`, so logs, reports and `.done` files don't collide.
+- Split file ownership explicitly: each brief lists the files that task owns and says
+  "do not edit files owned by the other task: <list>". Overlapping files → run sequentially.
+- Isolate build state per task, e.g. for SwiftPM:
+  `--scratch-path .build/<task>`, `CLANG_MODULE_CACHE_PATH=$PWD/.build/<task>/clang-module-cache`,
+  `SWIFTPM_MODULECACHE_OVERRIDE=$PWD/.build/<task>/swiftpm-module-cache`. Do the same for
+  other tools with a shared build/cache directory (separate `node_modules/.cache`, `target/` dirs).
+- Review and commit each task separately, after both have finished.
 
 ## 4. Review and accept
 
