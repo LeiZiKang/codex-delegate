@@ -63,13 +63,13 @@ multiple accounts), which Claude Code's non-interactive shell would not load.
 
 **As a plugin (recommended)**, inside Claude Code:
 ```
-/plugin marketplace add OWNER/codex-delegate
+/plugin marketplace add LeiZiKang/codex-delegate
 /plugin install codex-delegate@codex-delegate
 ```
 
 **As a plain skill**, copy the skill folder into your personal skills:
 ```bash
-git clone https://github.com/OWNER/codex-delegate
+git clone https://github.com/LeiZiKang/codex-delegate
 ```
 ```bash
 cp -R codex-delegate/skills/codex-delegate ~/.claude/skills/

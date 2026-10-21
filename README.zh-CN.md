@@ -60,13 +60,13 @@ Claude Code 的非交互 shell 不会加载这类函数，需要给脚本传 `--
 
 **作为插件（推荐）**，在 Claude Code 里：
 ```
-/plugin marketplace add OWNER/codex-delegate
+/plugin marketplace add LeiZiKang/codex-delegate
 /plugin install codex-delegate@codex-delegate
 ```
 
 **作为普通 skill**，把 skill 目录复制到个人 skills 目录：
 ```bash
-git clone https://github.com/OWNER/codex-delegate
+git clone https://github.com/LeiZiKang/codex-delegate
 ```
 ```bash
 cp -R codex-delegate/skills/codex-delegate ~/.claude/skills/

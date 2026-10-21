@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Save Claude usage: Claude plans, writes briefs and reviews; the local Codex CLI writes code, builds and tests.",
   "author": { "name": "Levi" },
-  "homepage": "https://github.com/OWNER/codex-delegate",
-  "repository": "https://github.com/OWNER/codex-delegate",
+  "homepage": "https://github.com/LeiZiKang/codex-delegate",
+  "repository": "https://github.com/LeiZiKang/codex-delegate",
   "license": "MIT",
   "keywords": ["codex", "delegation", "token-saving", "workflow", "code-review"]
 }
